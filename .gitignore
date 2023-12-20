@@ -1,0 +1,8 @@
+# $Id: .gitignore
+SLRI/test
+*.o
+.vscode
+.vstags
+*.bin
+solrun
+solrun-tiny

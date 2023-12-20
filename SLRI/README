@@ -1,0 +1,11 @@
+Solaris Low-Level Runtime Interface (SLRI)
+
+  Contains source code for the Solaris bytecode format
+
+  CPUs contain a fast I/O stack, as well as 256 registers, and 256 sections
+  (NOTE: unused)
+
+  You can either use solrun or solrun-tiny, which can either sacrafice
+  performance over binary size or vice versa.
+
+Contains standard functions to generate proper control flow and sequencing.
