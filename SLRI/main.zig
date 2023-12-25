@@ -93,7 +93,7 @@ pub fn main() !void {
             std.debug.print("{?d} ", .{byteFile.?.get(i)});
         }
 
-        std.debug.print("\nsolrun: bytes dumped: {d}\n", .{byteFile.?.data.len});
+        std.debug.print("\nsolrun: bytes dumped: {d}\n", .{byteFile.?.length()});
         std.process.exit(0);
     }
 

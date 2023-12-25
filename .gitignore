@@ -6,3 +6,4 @@ SLRI/test
 *.bin
 solrun
 solrun-tiny
+test-binaries/codegen-tests

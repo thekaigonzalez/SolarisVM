@@ -1,0 +1,6 @@
+# $Id: .gitignore
+codegen-tests
+*.fuse
+*.o
+main
+sasm

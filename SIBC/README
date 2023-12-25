@@ -1,0 +1,13 @@
+SIBC (Solaris Intermediate Bytecode Compiler) source code
+
+    Works hand-in-hand with SLRI, the Solaris Low-level Runtime Interface
+
+    Contains:
+      * sasm (Solaris Assembler)
+
+    VOLT has faster compilation times than SASM, but is much less powerful and
+    stable.
+
+    SASM generates ASTs, which are directly compiled into bytecode.
+
+    Supports NexFUSE, OpenLUD, MercuryPIC, and the Solaris Bytecode format.
