@@ -4,3 +4,5 @@ codegen-tests
 *.o
 main
 sasm
+output
+sasm-debug
