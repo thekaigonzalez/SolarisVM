@@ -163,11 +163,15 @@ pub fn main() !void {
     env.addOpcode("put", 45);
     env.addOpcode("get", 46);
 
+    env.addOpcode("in", 50);
+
+    env.addOpcode("popeq", 61);
     env.addOpcode("pushq", 61);
     env.addOpcode("popto", 63);
     env.addOpcode("rcl", 64);
     env.addOpcode("add", 65);
     env.addOpcode("movq", 66);
+    env.addOpcode("db", 67);
 
     env.addOpcode("je", 0xAB);
     env.addOpcode("eeq", 0xEF);
@@ -255,12 +259,12 @@ pub fn main() !void {
         // write the bytecode
         if (arch.convert(i32) == 32) {
             s_writeByteCode(ByteCodeArena.allocator(), output.convert([]const u8), byte_code, false) catch {
-                @panic("out of memory");
+                @panic("could not write bytecode to output dest.");
             };
         } else if (arch.convert(i32) == 8) {
             // perform pseudo-8bit actions (hence fake_8bit set to true)
             s_writeByteCode(ByteCodeArena.allocator(), output.convert([]const u8), byte_code, true) catch {
-                @panic("out of memory");
+                @panic("out of memory or could not write bytecode to output dest.");
             };
         } else {
             @panic("unsupported architecture");
