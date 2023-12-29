@@ -3,7 +3,7 @@
 ; a simple test for stack and registers
 _start:
     movq R1,5
-    movq R2,5
+    movq R2,4
 
     cmp R1,R2
     ; if R1 == R2
@@ -16,9 +16,7 @@ _start:
     ; this is required for the 'cmp' instruction
     ; if R1 != R2
     jne
-        echo 'D'
-        echo 'E'
-        echo 'F'
+        jmp false
     eeq
 
 false:
