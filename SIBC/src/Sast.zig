@@ -1,6 +1,14 @@
+//! The AST generation algorithm.
+//! 
+//! Can transform standard LR Assembly into a more computer-readable form.
+//! 
+//! * **Directives**: ✅
+//! * **Subroutines**: ✅
+//! * **Instructions**: ✅
+//! 
+
 // $Id: Sast.zig
 
-// generates the abstract syntax tree
 const std = @import("std");
 const ascii = std.ascii;
 
