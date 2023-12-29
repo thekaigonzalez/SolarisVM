@@ -29,7 +29,7 @@ const s_compat = @import("SDir.zig").s_compat;
 
 pub fn panic(message: []const u8, stack_trace: ?*std.builtin.StackTrace, _: ?usize) noreturn {
     _ = stack_trace;
-    std.debug.print("\x1b[31;1merror:\x1b[0m {s}\n", .{message});
+    std.debug.print("\x1b[31;1minternal error:\x1b[0m {s}\n", .{message});
     std.os.exit(1);
 }
 
@@ -70,6 +70,11 @@ pub fn main() !void {
     };
     output.default_value("a.bin");
 
+    var classic = argparser.add_flag('c', "classic", .boolean, "use the classic codegen.") catch {
+        @panic("out of memory");
+    };
+    classic.default_value("false");
+
     const irgen = argparser.add_flag('i', "ir", .boolean, "generates an intermediate representation of the program.") catch {
         @panic("out of memory");
     };
@@ -100,6 +105,11 @@ pub fn main() !void {
             \\
             \\        -o <filename>  specifies the output filename.
             \\        -i             Generates a top-down represation of the program in a Markdown-formatted file.
+            \\        -c             specifies classic code generation
+            \\                          Modern compiler features will handle all 32-bit instructions
+            \\                          and subroutines, specifying this flag will generate subroutine
+            \\                          calls and definitions instead, which can bloat file size
+            \\                          and can be less efficient for certain targets.
             \\
             \\  --engine <engine>    specifies the engine to compile for.
             \\                       Supports:
@@ -153,13 +163,12 @@ pub fn main() !void {
     env.addOpcode("put", 45);
     env.addOpcode("get", 46);
 
-    env.addOpcode("pushq", 51);
-    env.addOpcode("popto", 53);
-    env.addOpcode("rcl", 54);
-    env.addOpcode("add", 55);
-    env.addOpcode("movq", 56);
+    env.addOpcode("pushq", 61);
+    env.addOpcode("popto", 63);
+    env.addOpcode("rcl", 64);
+    env.addOpcode("add", 65);
+    env.addOpcode("movq", 66);
 
-    env.addOpcode("cmp", 0xC0);
     env.addOpcode("je", 0xAB);
     env.addOpcode("eeq", 0xEF);
     env.addOpcode("jne", 0xAC);
@@ -191,53 +200,70 @@ pub fn main() !void {
         env.end = 22;
     } else {
         std.debug.print("sasm: \x1b[35;1mnote:\x1b[0m choosing bytecode engine `{s}'", .{"NexFUSE"});
-        engineName = "NexFUSE";
+        engineName = "nexfuse";
     }
 
-    // essentially generate an IR (Intermediate Representation)
-    // Each file is structured as a HashMap:
-    // ("_start") => a list of instructions
-    // so on and so forth
-    // this new codegen actually implements and fixes recursion, etc.
-    // this also introduces output for low-level representations of
-    // source code.
-    // but that's for a new day.
-    const ir = s_codegen_new(ByteCodeArena.allocator(), ast, &env);
+    if (classic.convert(bool)) {
+        // nexfuse-based codegen here
+        env.addOpcode("cmp", 51);
 
-    if (irgen.convert(bool) == true) {
-        var key_iterator = ir.keyIterator();
+        const bytecode = s_codegen(ByteCodeArena.allocator(), ast, &env);
 
-        std.debug.print("<!-- Intermediate Representation of `{s}` -->\n", .{filename});
-        while (key_iterator.next()) |key| {
-            std.debug.print("## {s}\n", .{key.*});
-
-            const lbl = ir.get(key.*).?;
-
-            for (lbl.items) |item| {
-                // item is an instruction
-                std.debug.print("* `{s}`\n", .{item.name});
-                for (item.args.items) |arg| {
-                    std.debug.print("  * `{s}`\n", .{arg});
-                }
-            }
+        if (irgen.convert(bool) == true) {
+            @panic("irgen can not be used in classic mode (-c)");
         }
-        std.process.exit(0);
-    }
 
-    // generate the bytecode from the IR
-    const byte_code = s_codegen2(ByteCodeArena.allocator(), ir, &env, true);
-
-    // write the bytecode
-    if (arch.convert(i32) == 32) {
-        s_writeByteCode(ByteCodeArena.allocator(), output.convert([]const u8), byte_code, false) catch {
-            @panic("out of memory");
-        };
-    } else if (arch.convert(i32) == 8) {
-        // perform pseudo-8bit actions (hence fake_8bit set to true)
-        s_writeByteCode(ByteCodeArena.allocator(), output.convert([]const u8), byte_code, true) catch {
-            @panic("out of memory");
+        s_writeByteCode(ByteCodeArena.allocator(), output.convert([]const u8), bytecode, (arch.convert(i32) == 8)) catch {
+            @panic("failed to write bytecode");
         };
     } else {
-        @panic("unsupported architecture");
+        // essentially generate an IR (Intermediate Representation)
+        // Each file is structured as a HashMap:
+        // ("_start") => a list of instructions
+        // so on and so forth
+        // this new codegen actually implements and fixes recursion, etc.
+        // this also introduces output for low-level representations of
+        // source code.
+        // but that's for a new day.
+        const ir = s_codegen_new(ByteCodeArena.allocator(), ast, &env);
+
+        env.addOpcode("cmp", 0xC0);
+
+        if (irgen.convert(bool) == true) {
+            var key_iterator = ir.keyIterator();
+
+            std.debug.print("<!-- Intermediate Representation of `{s}` -->\n", .{filename});
+            while (key_iterator.next()) |key| {
+                std.debug.print("## {s}\n", .{key.*});
+
+                const lbl = ir.get(key.*).?;
+
+                for (lbl.items) |item| {
+                    // item is an instruction
+                    std.debug.print("* `{s}`\n", .{item.name});
+                    for (item.args.items) |arg| {
+                        std.debug.print("  * `{s}`\n", .{arg});
+                    }
+                }
+            }
+            std.process.exit(0);
+        }
+
+        // generate the bytecode from the IR
+        const byte_code = s_codegen2(ByteCodeArena.allocator(), ir, &env, true);
+
+        // write the bytecode
+        if (arch.convert(i32) == 32) {
+            s_writeByteCode(ByteCodeArena.allocator(), output.convert([]const u8), byte_code, false) catch {
+                @panic("out of memory");
+            };
+        } else if (arch.convert(i32) == 8) {
+            // perform pseudo-8bit actions (hence fake_8bit set to true)
+            s_writeByteCode(ByteCodeArena.allocator(), output.convert([]const u8), byte_code, true) catch {
+                @panic("out of memory");
+            };
+        } else {
+            @panic("unsupported architecture");
+        }
     }
 }
