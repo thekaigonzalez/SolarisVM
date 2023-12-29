@@ -1,11 +1,11 @@
 //! The AST generation algorithm.
-//! 
+//!
 //! Can transform standard LR Assembly into a more computer-readable form.
-//! 
+//!
 //! * **Directives**: ✅
 //! * **Subroutines**: ✅
 //! * **Instructions**: ✅
-//! 
+//!
 
 // $Id: Sast.zig
 
@@ -160,7 +160,7 @@ pub fn lexerError(
     fmt: anytype,
 ) void {
     _ = allocator;
-    std.debug.print("({d}:{d}) \x1b[31merror:\x1b[0m ", .{ lineno + 1, charno });
+    std.debug.print("({d}:{d}) \x1b[31merror:\x1b[0m ", .{ lineno, charno });
     std.debug.print(message, fmt);
     std.debug.print("\n", .{});
 
@@ -176,16 +176,22 @@ pub fn lexerError(
 
     while (scal.next()) |line| {
         if (n == lineno) {
-            std.debug.print("    {d}   |    {s}\n", .{ n + 1, line });
+            std.debug.print("    {d}   |    {s}\n", .{ n, line });
             std.debug.print("         ", .{});
 
-            std.debug.print("   ", .{});
+            std.debug.print(" ", .{});
 
             for (0..charno) |_| {
                 std.debug.print(" ", .{});
             }
 
-            std.debug.print("  \x1b[32;1m^~~~~~~~~~~~~~~~~\x1b[0m error occurs \x1b[35;1mhere\x1b[0m\n", .{});
+            std.debug.print("  \x1b[31m^", .{});
+
+            for (charno..line.len) |_| {
+                std.debug.print("~", .{});
+            }
+
+            std.debug.print("\x1b[0m\n", .{});
         }
         n += 1;
     }
@@ -216,6 +222,10 @@ pub fn s_generateASTFromCode(allocator: Allocator, code: []const u8) s_AST {
         if (code[i] == '\n') {
             lineno += 1;
             charno = 0;
+        }
+
+        if (code[i] == s_TokenCharacters.S_TOKEN_COMMENT_START and pc == 1) {
+            lexerError(allocator, code, lineno, charno, "inline comments are not allowed", .{});
         }
 
         if (code[i] == s_TokenCharacters.S_TOKEN_SUBROUTINE_HEADER and pc == 0) {
@@ -276,8 +286,7 @@ pub fn s_generateASTFromCode(allocator: Allocator, code: []const u8) s_AST {
                 pc = 0;
                 current_node = last_node;
             }
-        } else if (code[i] == s_TokenCharacters.S_TOKEN_DIRECTIVE_START and pc == 0 and buffer.items.len > 0) { // [compat <target>], etc. Directives
-
+        } else if (code[i] == s_TokenCharacters.S_TOKEN_DIRECTIVE_START and pc == 0) { // [compat <target>], etc. Directives
             pc = 3;
 
             buffer.clearRetainingCapacity();
@@ -342,8 +351,8 @@ pub fn s_generateASTFromCode(allocator: Allocator, code: []const u8) s_AST {
                     lexerError(allocator, code, lineno, charno, "inline comments are not allowed", .{});
                 }
 
-                if (ascii.isWhitespace(code[i]) and pc == 1) {
-                    lexerError(allocator, code, lineno, charno, "bash-style argument separator not allowed, did you mean, `\x1b[1m,\x1b[0m'?", .{});
+                if (ascii.isWhitespace(code[i]) and pc == 1 and buffer.items.len > 0) {
+                    lexerError(allocator, code, lineno, charno, "this could be incorrect. Bash-style arguments are not allowed", .{});
                 }
 
                 if (isSymbol(code[i])) {
