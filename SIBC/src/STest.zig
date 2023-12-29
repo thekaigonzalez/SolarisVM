@@ -109,7 +109,7 @@ test "codegen" {
     var Arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer Arena.deinit();
 
-    const ast = s_generate(Arena.allocator(), "_start:\n\techo a\n");
+    const ast = s_generate(Arena.allocator(), "m:\n\techo a\n");
 
     var env = s_ASMEnvironment.init(Arena.allocator());
 
@@ -127,7 +127,7 @@ test "instruction lists" {
     var Arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer Arena.deinit();
 
-    const ast = s_generate(Arena.allocator(), "_start:\n\tjmp bab\nbab:\n\njmp _start\n");
+    const ast = s_generate(Arena.allocator(), "_start:\n\techo 'a'\n");
 
     var env = s_ASMEnvironment.init(Arena.allocator());
 
@@ -138,4 +138,18 @@ test "instruction lists" {
     const bytecode = s_codegen3(Arena.allocator(), instructions, &env, true);
 
     std.debug.print("{any}\n", .{bytecode.items});
+}
+
+test "traditional codegen" {
+    var Arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer Arena.deinit();
+
+    const ast = s_generate(Arena.allocator(), "_start:\n\tjmp bab\nbab:\n\njmp _start\n");
+    _ = ast;
+
+    const env = s_ASMEnvironment.init(Arena.allocator());
+    _ = env;
+
+    // const bytecode = s_codegen(Arena.allocator(), ast, &env);
+    // _ = bytecode;
 }
