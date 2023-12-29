@@ -18,7 +18,6 @@ const s_InstructionList = @import("SInstruction.zig").s_InstructionList;
 const s_InstructionMap = @import("SInstruction.zig").s_InstructionMap;
 const s_Instruction = @import("SInstruction.zig").s_Instruction;
 
-
 pub fn s_generateBytecodeFromAST(allocator: Allocator, ast: s_AST, env: *s_ASMEnvironment) s_32BitByteCode {
     @compileLog("this function is deprecated, please use IR APIs instead.");
 
@@ -218,7 +217,8 @@ fn do_instructions(allocator: Allocator, inst: s_InstructionList, env: *s_ASMEnv
             }
 
             do_instructions(allocator, label.?, env, bc, ins_map);
-            return;
+
+            continue;
         }
 
         const opcode = env.opcodes.get(ins.name) orelse {
