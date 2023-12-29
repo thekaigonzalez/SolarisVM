@@ -189,7 +189,8 @@ pub fn s_generateASTFromCode(allocator: Allocator, code: []const u8) s_AST {
     var ast = s_AST.init(allocator);
 
     var i: u32 = 0;
-    var pc: u32 = 0; // program counter, for keeping track of where we are in the code
+    var pc: i32 = 0; // program counter, for keeping track of where we are in the code
+    var last_pc: i32 = 0;
 
     var lineno: u32 = 1;
     var charno: u32 = 0;
@@ -243,7 +244,7 @@ pub fn s_generateASTFromCode(allocator: Allocator, code: []const u8) s_AST {
             }
 
             buffer.clearRetainingCapacity();
-        } else if ((code[i] == s_TokenCharacters.S_TOKEN_PARAM_SEPARATOR or code[i] == '\n' or i + 1 >= code.len) and pc == 1) {
+        } else if ((code[i] == s_TokenCharacters.S_TOKEN_PARAM_SEPARATOR or code[i] == '\n' or i + 1 >= code.len) and pc == 1 and buffer.items.len > 0) {
             if (code[i] == '\n' or i + 1 >= code.len) {
                 if (!ascii.isWhitespace(code[i])) {
                     buffer.append(code[i]) catch {
@@ -267,12 +268,12 @@ pub fn s_generateASTFromCode(allocator: Allocator, code: []const u8) s_AST {
                 pc = 0;
                 current_node = last_node;
             }
-        } else if (code[i] == s_TokenCharacters.S_TOKEN_DIRECTIVE_START and pc == 0) { // [compat <target>], etc. Directives
+        } else if (code[i] == s_TokenCharacters.S_TOKEN_DIRECTIVE_START and pc == 0 and buffer.items.len > 0) { // [compat <target>], etc. Directives
 
             pc = 3;
 
             buffer.clearRetainingCapacity();
-        } else if (ascii.isWhitespace(code[i]) and pc == 3) {
+        } else if (ascii.isWhitespace(code[i]) and pc == 3 and buffer.items.len > 0) {
             const nod = s_Node{
                 ._id = buffer.toOwnedSlice() catch {
                     @panic("out of memory");
@@ -287,7 +288,7 @@ pub fn s_generateASTFromCode(allocator: Allocator, code: []const u8) s_AST {
             current_node = &current_node._nodes.items[current_node._nodes.items.len - 1];
 
             pc = 4;
-        } else if ((ascii.isWhitespace(code[i]) or code[i] == s_TokenCharacters.S_TOKEN_DIRECTIVE_END) and pc == 4) {
+        } else if ((ascii.isWhitespace(code[i]) or code[i] == s_TokenCharacters.S_TOKEN_DIRECTIVE_END) and pc == 4 and buffer.items.len > 0) {
             const nod = s_Node{
                 ._id = buffer.toOwnedSlice() catch {
                     @panic("out of memory");
@@ -308,10 +309,14 @@ pub fn s_generateASTFromCode(allocator: Allocator, code: []const u8) s_AST {
             if (code[i] == '\n' and comment) {
                 comment = false;
                 buffer.clearRetainingCapacity();
+                pc = last_pc;
             }
 
             if (code[i] == s_TokenCharacters.S_TOKEN_COMMENT_START) {
                 comment = true;
+                last_pc = pc;
+                pc = -1;
+                buffer.clearRetainingCapacity();
             }
 
             if (!comment) {
