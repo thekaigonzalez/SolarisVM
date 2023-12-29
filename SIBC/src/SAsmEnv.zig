@@ -1,7 +1,8 @@
-// $Id: SAsmEnv.zig
+//! Contains the assembly bytecode-level environment
+//! 
+//! do note that this is not used in classic mode.
 
-// defines an assembly bytecode-level environment
-// this essentially holds all labels for bytecode
+// $Id: SAsmEnv.zig
 const std = @import("std");
 
 const s_32BitByteCode = @import("SByteCode.zig").s_32BitByteCode;
