@@ -1,0 +1,34 @@
+<!-- Intermediate Representation of `test2-stack-register.asm` -->
+## _start
+* `movq`
+  * `R1`
+  * `5`
+* `movq`
+  * `R2`
+  * `5`
+* `cmp`
+  * `R1`
+  * `R2`
+* `je`
+* `echo`
+  * `'A'`
+* `echo`
+  * `'B'`
+* `echo`
+  * `'C'`
+* `eeq`
+* `jne`
+* `echo`
+  * `'D'`
+* `echo`
+  * `'E'`
+* `echo`
+  * `'F'`
+* `eeq`
+## false
+* `echo`
+  * `'D'`
+* `echo`
+  * `'E'`
+* `echo`
+  * `'F'`
