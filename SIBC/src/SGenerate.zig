@@ -18,25 +18,39 @@ const s_InstructionList = @import("SInstruction.zig").s_InstructionList;
 const s_InstructionMap = @import("SInstruction.zig").s_InstructionMap;
 const s_Instruction = @import("SInstruction.zig").s_Instruction;
 
+/// generates bytecode from an AST
+///
+/// **NOTE** this function is deprecated, but left in
+///   for backward compatibility.
+///
+/// generates lazy bytecode, meaning that if the format
+/// it's designed for does not support the instructions,
+/// it will still generate them. This is different and less
+/// practical than using the IR/Instruction maps,
+/// and will not provide deep cleaning of the bytecode.
 pub fn s_generateBytecodeFromAST(allocator: Allocator, ast: s_AST, env: *s_ASMEnvironment) s_32BitByteCode {
-    @compileLog("this function is deprecated, please use IR APIs instead.");
-
     var bc = s_32BitByteCode.init(allocator);
-    var tc = s_32BitByteCode.init(allocator);
 
     var gen = &bc;
-
-    const in_subroutine = false;
-    _ = in_subroutine;
 
     for (ast.nodes().items) |node| {
         switch (node._type) {
             .ast_subroutine_header_def => {
                 // TODO: deprecate start
-                const start = false;
+                var start = false;
 
-                gen = &tc;
-                tc.clearRetainingCapacity();
+                if (node._id[0] == 'm') {
+                    start = true;
+                }
+
+                if (!start) {
+                    gen.append(10) catch {
+                        @panic("out of memory");
+                    }; // SUB
+                    gen.append(node._id[0]) catch {
+                        @panic("out of memory");
+                    }; // <LABEL>
+                }
 
                 for (node._nodes.items) |sub_node| {
                     // id is the name of the instruction
@@ -45,18 +59,17 @@ pub fn s_generateBytecodeFromAST(allocator: Allocator, ast: s_AST, env: *s_ASMEn
                     var jmp = false;
 
                     if (std.mem.eql(u8, nam, "jmp")) {
+                        // GOSUB instructions are structured like
+                        // 15 <lbl>
+                        gen.*.append(15) catch {
+                            @panic("out of memory");
+                        };
+
+                        gen.*.append(s_Value.from(sub_node._nodes.items[0]._id).asNumber()) catch {
+                            @panic("out of memory");
+                        };
+
                         jmp = true;
-                        const id = sub_node._nodes.items[0]._id;
-
-                        // handle jmp code, basically unload
-                        // an entire label's bytecode onto the frame
-                        const labl = env.getLabel(id);
-
-                        for (0..labl.items.len) |j| {
-                            gen.append(labl.items[j]) catch {
-                                @panic("out of memory");
-                            };
-                        }
                     }
 
                     if (!jmp) {
@@ -85,15 +98,16 @@ pub fn s_generateBytecodeFromAST(allocator: Allocator, ast: s_AST, env: *s_ASMEn
                     }
                 }
 
+                // NexFUSE's ENDSUB is 0x80.
                 if (!start) {
-                    var labl = env.addLabelAndReturn(node._id);
-
-                    for (0..gen.items.len) |i| {
-                        labl.append(gen.items[i]) catch {
-                            @panic("out of memory");
-                        };
-                    }
+                    gen.*.append(env.end) catch {
+                        @panic("out of memory");
+                    };
+                    gen.*.append(0x80) catch {
+                        @panic("out of memory");
+                    };
                 }
+                // the main subroutine is the flat code itself
             },
             .ast_directive => {
                 var as_str = std.ArrayList([]const u8).init(allocator);
@@ -114,10 +128,6 @@ pub fn s_generateBytecodeFromAST(allocator: Allocator, ast: s_AST, env: *s_ASMEn
         }
     }
 
-    bc.appendSlice(env.getLabel("_start").items[0..]) catch {
-        @panic("out of memory");
-    };
-
     if (env.needs_end) {
         bc.append(env.end) catch {
             @panic("out of memory");
@@ -133,6 +143,9 @@ pub fn s_generateInstructionsFromAST(allocator: Allocator, ast: s_AST, env: *s_A
     for (ast.nodes().items) |node| {
         switch (node._type) {
             .ast_subroutine_header_def => {
+                // TODO: this current system disallows labels and subroutines
+                // in NexFUSE, please use the legacy IR generation instead
+                // (see s_generateBytecodeFromAST)
                 var gen = s_InstructionList.init(allocator);
 
                 for (node._nodes.items) |sub_node| {
