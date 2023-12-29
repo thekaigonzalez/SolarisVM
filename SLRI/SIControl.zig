@@ -66,8 +66,6 @@ pub const solarisControl = struct {
                 const reg1 = walker.next();
                 const reg2 = walker.next();
 
-                std.debug.print("solaris: cmp {?d} {?d}\n", .{ reg1, reg2 });
-
                 if (reg1 == null or reg2 == null) {
                     std.debug.print("solaris: error: cmp requires 2 registers\n", .{});
                     std.process.exit(1);
@@ -100,18 +98,32 @@ pub const solarisControl = struct {
                             std.process.exit(1);
                         };
                         curr = walker.next();
+
+                        if (curr == null) {
+                            std.debug.print("solaris: error: cmp requires je\n", .{});
+                            std.process.exit(1);
+                        }
                     }
 
                     self.executeBytecode(sub.items);
-
 
                     if (walker.peek().? != 0xAC) {
                         // ignore
                     } else {
                         curr = walker.next();
 
+                        if (curr == null) {
+                            std.debug.print("solaris: error: cmp requires jne\n", .{});
+                            std.process.exit(1);
+                        }
+
                         while (curr.? != 0xEF) {
                             curr = walker.next();
+
+                            if (curr == null) {
+                                std.debug.print("solaris: error: cmp requires jne\n", .{});
+                                std.process.exit(1);
+                            }
                         } // note: just ignore everything else
                         // TODO: (maybe?) optimize this lol
                     }
@@ -126,7 +138,7 @@ pub const solarisControl = struct {
                     var sub = std.ArrayList(i32).init(self.cpu.heap_internal);
 
                     while (curr.? != 0xEF) {
-                      curr = walker.next(); // ignore true block
+                        curr = walker.next(); // ignore true block
                     }
 
                     if (walker.peek().? != 0xAC) {
@@ -136,12 +148,23 @@ pub const solarisControl = struct {
 
                     curr = walker.next();
 
+                    if (curr == null) {
+                        std.debug.print("solaris: error: cmp requires endeq\n", .{});
+                        std.process.exit(1);
+                    }
+
                     while (curr.? != 0xEF) {
                         sub.append(curr.?) catch {
                             std.debug.print("solaris: error: out of memory\n", .{});
                             std.process.exit(1);
                         };
+
                         curr = walker.next();
+
+                        if (curr == null) {
+                            std.debug.print("solaris: error: no endeq\n", .{});
+                            std.process.exit(1);
+                        }
                     }
 
                     self.executeBytecode(sub.items);
