@@ -21,6 +21,8 @@ const s_generate = @import("Sast.zig").s_generateASTFromCode;
 const s_codegen = @import("SGenerate.zig").s_generateBytecodeFromAST;
 const s_ASMEnvironment = @import("SAsmEnv.zig").s_ASMEnvironment;
 
+const s_compat = @import("SDir.zig").s_compat;
+
 pub fn panic(message: []const u8, stack_trace: ?*std.builtin.StackTrace, _: ?usize) noreturn {
     _ = stack_trace;
     std.debug.print("\x1b[31;1merror:\x1b[0m {s}\n", .{message});
@@ -120,7 +122,11 @@ pub fn main() !void {
 
     var env = s_ASMEnvironment.init(EnvironmentArena.allocator());
 
-    const engineName = engine.convert([]const u8);
+    var engineName = engine.convert([]const u8);
+
+    if (std.mem.eql(u8, engineName, "")) {
+        engineName = "nexfuse";
+    }
 
     env.addOpcode("echo", 40);
     env.addOpcode("mov", 41);
@@ -130,31 +136,34 @@ pub fn main() !void {
     env.addOpcode("put", 45);
     env.addOpcode("get", 46);
 
-    if (std.mem.eql(u8, engineName, "OpenLUD")) {
+    env.addDirective("compat", s_compat);
+
+    env.format = std.ascii.allocLowerString(TokenArena.allocator(), engineName) catch {
+        @panic("out of memory");
+    };
+
+    if (std.mem.eql(u8, env.format, "openlud")) {
         env.is_delimited = true;
         env.delimiter = 0;
         env.needs_end = true;
         env.end = 12;
-    } else if (std.mem.eql(u8, engineName, "NexFUSE")) {
+    } else if (std.mem.eql(u8, env.format, "nexfuse")) {
         env.is_delimited = true;
         env.delimiter = 0;
 
         env.needs_end = true;
         env.end = 22;
-    } else if (std.mem.eql(u8, engineName, "Solaris")) {
+    } else if (std.mem.eql(u8, env.format, "solaris")) {
         // solaris needs nothing special
-    } 
-
-    else if (std.mem.eql(u8, engineName, "MercuryPIC")) {
+    } else if (std.mem.eql(u8, env.format, "mercurypic")) {
         env.is_delimited = true;
         env.delimiter = 0xAF;
 
         env.needs_end = true;
         env.end = 22;
-    }
-    
-    else {
-        @panic("unsupported engine specified, available options: OpenLUD, NexFUSE, Solaris, MercuryPIC");
+    } else {
+        std.debug.print("sasm: \x1b[35;1mnote:\x1b[0m choosing bytecode engine `{s}'", .{"NexFUSE"});
+        engineName = "NexFUSE";
     }
 
     const byte_code = s_codegen(ByteCodeArena.allocator(), ast, &env);
