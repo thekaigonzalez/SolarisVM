@@ -6,11 +6,24 @@ _start:
     movq R2,5
 
     cmp R1,R2
+    ; if R1 == R2
     je
-    echo 'A'
+        echo 'A'
+        echo 'B'
+        echo 'C'
     eeq
+    ; note: eeq stands for ENDEQ, i.e. end of equal
+    ; this is required for the 'cmp' instruction
+    
+    ; if R1 != R2
     jne
-    echo 'B'
+        echo 'D'
+        echo 'E'
+        echo 'F'
     eeq
 
-  ; result - 3
+false:
+    echo 'D'
+    echo 'E'
+    echo 'F'
+; for false
