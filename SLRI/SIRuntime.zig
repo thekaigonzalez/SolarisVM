@@ -216,7 +216,7 @@ pub fn solarisRTPOPEQ(cpu: *solarisCPU, walker: *solarisWalker) void {
     }
 }
 
-pub const solarisPUSHQInstruction = 51;
+pub const solarisPUSHQInstruction = 61;
 /// ## Solaris PUSHQ Instruction
 ///
 /// Takes in 1 byte and pushes it to the last value in the stack
@@ -240,7 +240,7 @@ pub fn solarisRTPUSHQ(cpu: *solarisCPU, walker: *solarisWalker) void {
     return;
 }
 
-pub const solarisPOPTOPInstruction = 52;
+pub const solarisPOPTOPInstruction = 62;
 /// ## Solaris POPTOP Instruction
 ///
 /// Pops 1 byte from the top of the stack and pushes it to the last value in the
@@ -267,7 +267,7 @@ pub fn solarisRTPOPTOP(cpu: *solarisCPU, walker: *solarisWalker) void {
     return;
 }
 
-pub const solarisPOPTOInstruction = 53;
+pub const solarisPOPTOInstruction = 63;
 /// ## Solaris POPTO Instruction
 ///
 /// Pops 1 byte from the top of the stack and pushes it into the given register
@@ -294,7 +294,7 @@ pub fn solarisRTPOPTO(cpu: *solarisCPU, walker: *solarisWalker) void {
     return;
 }
 
-pub const solarisRCLInstruction = 54;
+pub const solarisRCLInstruction = 64;
 /// ## Solaris RCL instruction
 ///
 /// Prints the entirety of a register as numbers,
@@ -321,7 +321,7 @@ pub fn solarisRCL(cpu: *solarisCPU, walker: *solarisWalker) void {
     cpu.push(0);
 }
 
-pub const solarisADDInstruction = 55;
+pub const solarisADDInstruction = 65;
 /// ## Solaris ADD instruction
 ///
 /// Adds the top 2 values in the stack
@@ -338,7 +338,7 @@ pub fn solarisADD(cpu: *solarisCPU, walker: *solarisWalker) void {
     cpu.push(a + b);
 }
 
-pub const solarisMOVQInstruction = 56;
+pub const solarisMOVQInstruction = 66;
 /// ## Solaris MOVQ Instruction
 ///
 /// Moves a value to specified register
