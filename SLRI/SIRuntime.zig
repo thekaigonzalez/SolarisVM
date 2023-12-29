@@ -175,7 +175,31 @@ pub fn solarisRTGET(cpu: *solarisCPU, walker: *solarisWalker) void {
     cpu.push(0);
 }
 
-pub const solarisPOPEQInstruction = 50;
+pub const solarisINInstruction = 50;
+/// ## Solaris IN Instruction
+///
+/// Reads 1 byte from stdin and pushes it to the given register
+///
+/// ### Return Codes
+/// * `0` - Success
+pub fn solarisRTIN(cpu: *solarisCPU, walker: *solarisWalker) void {
+    const reg_num = walker.next();
+
+    if (cpu.state == .SUBROUTINE) return;
+
+    const register = cpu.registerAt(@intCast(reg_num.?));
+    const stdin = std.io.getStdIn();
+    const ch = stdin.reader().readByte() catch {
+        cpu.push(1);
+        return;
+    };
+
+    register.push(@intCast(ch));
+
+    cpu.push(0);
+}
+
+pub const solarisPOPEQInstruction = 60;
 /// ## Solaris POPEQ Instruction
 ///
 /// Pops 1 byte from the top of the stack and checks it against the second byte,
@@ -360,11 +384,34 @@ pub fn solarisMOVQ(cpu: *solarisCPU, walker: *solarisWalker) void {
     cpu.push(0);
 }
 
+pub const solarisDBInstruction = 67;
+/// ## Solaris DB Instruction
+///
+/// Takes in a register and an amount, and any bytes given after the
+/// amount are added to the register
+pub fn solarisDB(cpu: *solarisCPU, walker: *solarisWalker) void {
+    const reg = walker.next();
+    const amount = walker.next();
+
+    if (reg == null or amount == null) {
+        cpu.push(1);
+    }
+
+    var i: usize = 0;
+
+    while (i < amount.?) : (i += 1) {
+        cpu.registerAt(@intCast(reg.?)).push(walker.next().?);
+    }
+    cpu.push(0);
+}
+
 /// Load the runtime (every instruction)
 pub fn solarisLoadRuntime(hash: *solarisOpHash) void {
     hash.put(solarisOpCode.init(solarisECHOInstruction, solarisRTECHO));
     hash.put(solarisOpCode.init(solarisMOVInstruction, solarisRTMOV));
     hash.put(solarisOpCode.init(solarisEACHInstruction, solarisRTEACH));
+
+    hash.put(solarisOpCode.init(solarisINInstruction, solarisRTIN));
 
     hash.put(solarisOpCode.init(solarisPOPEQInstruction, solarisRTPOPEQ));
     hash.put(solarisOpCode.init(solarisPUSHQInstruction, solarisRTPUSHQ));
@@ -373,4 +420,5 @@ pub fn solarisLoadRuntime(hash: *solarisOpHash) void {
     hash.put(solarisOpCode.init(solarisRCLInstruction, solarisRCL));
     hash.put(solarisOpCode.init(solarisADDInstruction, solarisADD));
     hash.put(solarisOpCode.init(solarisMOVQInstruction, solarisMOVQ));
+    hash.put(solarisOpCode.init(solarisDBInstruction, solarisDB));
 }
