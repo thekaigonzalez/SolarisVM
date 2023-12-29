@@ -19,6 +19,10 @@ const print_ast_pretty = @import("Sast.zig").printASTPretty;
 
 const s_generate = @import("Sast.zig").s_generateASTFromCode;
 const s_codegen = @import("SGenerate.zig").s_generateBytecodeFromAST;
+
+const s_codegen_new = @import("SGenerate.zig").s_generateInstructionsFromAST;
+const s_codegen2 = @import("SGenerate.zig").s_byteCodeFromInstructions;
+
 const s_ASMEnvironment = @import("SAsmEnv.zig").s_ASMEnvironment;
 
 const s_compat = @import("SDir.zig").s_compat;
@@ -66,6 +70,10 @@ pub fn main() !void {
     };
     output.default_value("a.bin");
 
+    const irgen = argparser.add_flag('i', "ir", .boolean, "generates an intermediate representation of the program.") catch {
+        @panic("out of memory");
+    };
+
     argparser.parse_args(args[1..]) catch {
         @panic("failed to parse command line arguments");
     };
@@ -90,13 +98,22 @@ pub fn main() !void {
             \\                       to directly specify the engine to compile for use --engine.
             \\                       this is primarily meant to be used in conjunction with --engine.
             \\
+            \\        -o <filename>  specifies the output filename.
+            \\        -i             Generates a top-down represation of the program in a Markdown-formatted file.
             \\
-            \\        -E <engine>    specifies the engine to compile for.
+            \\  --engine <engine>    specifies the engine to compile for.
             \\                       Supports:
             \\                          OpenLUD
             \\                          NexFUSE
             \\                          Solaris
             \\                          MercuryPIC
+            \\
+            \\for 8-bit codegen, pseudo-8bit emulation is performed, essentially
+            \\replacing all 32-bit instructions with 8-bit equivalents/truncating each 32-bit
+            \\value.
+            \\
+            \\for 32-bit codegen, no emulation is performed, and the bytecode is written as-is.
+            \\
         ;
         std.debug.print("{s}\n", .{src});
         std.process.exit(0);
@@ -136,6 +153,17 @@ pub fn main() !void {
     env.addOpcode("put", 45);
     env.addOpcode("get", 46);
 
+    env.addOpcode("pushq", 51);
+    env.addOpcode("popto", 53);
+    env.addOpcode("rcl", 54);
+    env.addOpcode("add", 55);
+    env.addOpcode("movq", 56);
+
+    env.addOpcode("cmp", 0xC0);
+    env.addOpcode("je", 0xAB);
+    env.addOpcode("eeq", 0xEF);
+    env.addOpcode("jne", 0xAC);
+
     env.addDirective("compat", s_compat);
 
     env.format = std.ascii.allocLowerString(TokenArena.allocator(), engineName) catch {
@@ -149,9 +177,9 @@ pub fn main() !void {
         env.end = 12;
     } else if (std.mem.eql(u8, env.format, "nexfuse")) {
         env.is_delimited = true;
-        env.delimiter = 0;
-
         env.needs_end = true;
+
+        env.delimiter = 0;
         env.end = 22;
     } else if (std.mem.eql(u8, env.format, "solaris")) {
         // solaris needs nothing special
@@ -166,12 +194,49 @@ pub fn main() !void {
         engineName = "NexFUSE";
     }
 
-    const byte_code = s_codegen(ByteCodeArena.allocator(), ast, &env);
+    // essentially generate an IR (Intermediate Representation)
+    // Each file is structured as a HashMap:
+    // ("_start") => a list of instructions
+    // so on and so forth
+    // this new codegen actually implements and fixes recursion, etc.
+    // this also introduces output for low-level representations of
+    // source code.
+    // but that's for a new day.
+    const ir = s_codegen_new(ByteCodeArena.allocator(), ast, &env);
 
+    if (irgen.convert(bool) == true) {
+        var key_iterator = ir.keyIterator();
+
+        std.debug.print("<!-- Intermediate Representation of `{s}` -->\n", .{filename});
+        while (key_iterator.next()) |key| {
+            std.debug.print("## {s}\n", .{key.*});
+
+            const lbl = ir.get(key.*).?;
+
+            for (lbl.items) |item| {
+                // item is an instruction
+                std.debug.print("* `{s}`\n", .{item.name});
+                for (item.args.items) |arg| {
+                    std.debug.print("  * `{s}`\n", .{arg});
+                }
+            }
+        }
+        std.process.exit(0);
+    }
+
+    // generate the bytecode from the IR
+    const byte_code = s_codegen2(ByteCodeArena.allocator(), ir, &env, true);
+
+    // write the bytecode
     if (arch.convert(i32) == 32) {
-        try s_writeByteCode(ByteCodeArena.allocator(), output.convert([]const u8), byte_code, false);
+        s_writeByteCode(ByteCodeArena.allocator(), output.convert([]const u8), byte_code, false) catch {
+            @panic("out of memory");
+        };
     } else if (arch.convert(i32) == 8) {
-        try s_writeByteCode(ByteCodeArena.allocator(), output.convert([]const u8), byte_code, true);
+        // perform pseudo-8bit actions (hence fake_8bit set to true)
+        s_writeByteCode(ByteCodeArena.allocator(), output.convert([]const u8), byte_code, true) catch {
+            @panic("out of memory");
+        };
     } else {
         @panic("unsupported architecture");
     }

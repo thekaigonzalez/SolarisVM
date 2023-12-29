@@ -1,3 +1,4 @@
 # $Id: build.pl
 
-`zig build-exe main.zig -O ReleaseFast --name sasm`;
+
+`zig cc main.zig -O2 -o output/sasm`;

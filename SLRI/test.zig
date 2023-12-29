@@ -94,11 +94,16 @@ pub fn edge_case4() !void {
     solarisRuntime.solarisLoadRuntime(&opHash);
 
     var bytes = [_]i32{
-        10, 65,
-            40, 65,
-        11,
+        0xC0, 1, 2, // cmp R1,R2
         
-        15, 65,
+        0xAB, // je
+        40, 0x41, // ECHO A
+        0xEF, // ENDEQ
+
+        0xAC, // jne
+        40, 0x42, // ECHO B
+        0xEF, // ENDEQ
+        
     };
 
     var control = solarisControl.init(&cpu, &opHash);

@@ -1,7 +1,7 @@
 //! Runtime
 //!
 //! Standard I/O functions
-//! 
+//!
 //! keep in mind, all standard functions are sub-safe, meaning
 //! that they are easily integrated into subroutines.
 
@@ -294,13 +294,83 @@ pub fn solarisRTPOPTO(cpu: *solarisCPU, walker: *solarisWalker) void {
     return;
 }
 
+pub const solarisRCLInstruction = 54;
+/// ## Solaris RCL instruction
+///
+/// Prints the entirety of a register as numbers,
+/// if they're not 0
+///
+/// ### Return Codes
+/// * `0` - Success
+pub fn solarisRCL(cpu: *solarisCPU, walker: *solarisWalker) void {
+    const reg = walker.next();
+
+    if (reg == null) {
+        return;
+    }
+
+    const r = cpu.registerAt(@intCast(reg.?));
+
+    for (0..r.data.len) |i| {
+        if (r.data[i] == 0) {
+            continue;
+        }
+        std.debug.print("{d}\n", .{r.data[i]});
+    }
+
+    cpu.push(0);
+}
+
+pub const solarisADDInstruction = 55;
+/// ## Solaris ADD instruction
+///
+/// Adds the top 2 values in the stack
+///
+/// ### Return Codes
+/// * `0` - Success
+/// * `1` - Error in parameters
+/// * `2` - Stack underflow
+pub fn solarisADD(cpu: *solarisCPU, walker: *solarisWalker) void {
+    _ = walker;
+    const b = cpu.pop().?;
+    const a = cpu.pop().?;
+
+    cpu.push(a + b);
+}
+
+pub const solarisMOVQInstruction = 56;
+/// ## Solaris MOVQ Instruction
+///
+/// Moves a value to specified register
+///
+/// ### Return Codes
+///
+/// * `0` - Success
+/// * `1` - Error in parameters
+pub fn solarisMOVQ(cpu: *solarisCPU, walker: *solarisWalker) void {
+    const reg = walker.next();
+    const val = walker.next();
+
+    if (reg == null or val == null) {
+        cpu.push(1);
+        return;
+    }
+
+    cpu.registerAt(@intCast(reg.?)).push(val.?);
+    cpu.push(0);
+}
+
 /// Load the runtime (every instruction)
 pub fn solarisLoadRuntime(hash: *solarisOpHash) void {
     hash.put(solarisOpCode.init(solarisECHOInstruction, solarisRTECHO));
     hash.put(solarisOpCode.init(solarisMOVInstruction, solarisRTMOV));
     hash.put(solarisOpCode.init(solarisEACHInstruction, solarisRTEACH));
+
     hash.put(solarisOpCode.init(solarisPOPEQInstruction, solarisRTPOPEQ));
     hash.put(solarisOpCode.init(solarisPUSHQInstruction, solarisRTPUSHQ));
     hash.put(solarisOpCode.init(solarisPOPTOPInstruction, solarisRTPOPTOP));
     hash.put(solarisOpCode.init(solarisPOPTOInstruction, solarisRTPOPTO));
+    hash.put(solarisOpCode.init(solarisRCLInstruction, solarisRCL));
+    hash.put(solarisOpCode.init(solarisADDInstruction, solarisADD));
+    hash.put(solarisOpCode.init(solarisMOVQInstruction, solarisMOVQ));
 }

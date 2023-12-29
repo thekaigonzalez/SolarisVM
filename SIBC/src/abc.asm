@@ -1,4 +1,4 @@
-[compat nexfuse]
+[compat mercurypic]
 
 _start:
     echo 'A'
@@ -11,4 +11,3 @@ b:
 c:
     echo 'C'
     echo 0x0a
-    ; end

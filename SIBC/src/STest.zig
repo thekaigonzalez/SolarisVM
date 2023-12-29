@@ -18,7 +18,12 @@ const print_ast_pretty = @import("Sast.zig").printASTPretty;
 
 const s_generate = @import("Sast.zig").s_generateASTFromCode;
 const s_codegen = @import("SGenerate.zig").s_generateBytecodeFromAST;
+const s_codegen2 = @import("SGenerate.zig").s_generateInstructionsFromAST;
+const s_codegen3 = @import("SGenerate.zig").s_byteCodeFromInstructions;
 const s_ASMEnvironment = @import("SAsmEnv.zig").s_ASMEnvironment;
+
+const s_InstructionList = @import("SInstruction.zig").s_InstructionList;
+const s_Instruction = @import("SInstruction.zig").s_Instruction;
 
 test "values" {
     var v: s_Value = s_Value.initNil();
@@ -95,7 +100,7 @@ test "bytecode writer" {
     try byte_code.append(3);
     try byte_code.append(4);
 
-    try s_writeByteCode(Arena.allocator(), "test", byte_code);
+    try s_writeByteCode(Arena.allocator(), "test", byte_code, false);
 
     try assert(byte_code.capacity > 0);
 }
@@ -116,4 +121,21 @@ test "codegen" {
     std.debug.print("{any}\n", .{byte_code.items});
 
     try s_writeByteCode(Arena.allocator(), "a.bin", byte_code, false);
+}
+
+test "instruction lists" {
+    var Arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer Arena.deinit();
+
+    const ast = s_generate(Arena.allocator(), "_start:\n\tjmp bab\nbab:\n\njmp _start\n");
+
+    var env = s_ASMEnvironment.init(Arena.allocator());
+
+    env.addOpcode("mov", 45);
+    env.addOpcode("echo", 40);
+
+    const instructions = s_codegen2(Arena.allocator(), ast, &env);
+    const bytecode = s_codegen3(Arena.allocator(), instructions, &env, true);
+
+    std.debug.print("{any}\n", .{bytecode.items});
 }

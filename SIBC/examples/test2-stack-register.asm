@@ -1,11 +1,16 @@
-# $Id: test2-stack-register.asm
+; $Id: test2-stack-register.asm
 
-# a simple test for stack and registers
+; a simple test for stack and registers
 _start:
-  push 1
-  push 2
-  add
-  pop R1
-  rcl R1
+    movq R1,5
+    movq R2,5
 
-  # result - 3
+    cmp R1,R2
+    je
+    echo 'A'
+    eeq
+    jne
+    echo 'B'
+    eeq
+
+  ; result - 3

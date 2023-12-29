@@ -9,5 +9,5 @@ if (! $zig) {
 }
 
 `$zig build-exe test.zig`;
-`$zig build-exe main.zig --name solrun -O ReleaseFast`;
+`$zig build-exe main.zig --name solrun`;
 `$zig build-exe main.zig --name solrun-tiny -O ReleaseSmall`;

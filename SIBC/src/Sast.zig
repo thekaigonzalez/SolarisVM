@@ -78,15 +78,15 @@ pub const s_NodeType = enum {
     ast_directive_param,
 
     /// Keywords
-    /// 
+    ///
     /// used for things like `extern`-ing labels
-    /// 
+    ///
     /// ```zig
     /// extern abc
-    /// 
+    ///
     /// _start:
     ///     jmp abc
-    /// 
+    ///
     /// abc:
     ///     mov R0, 0
     /// ```
@@ -118,7 +118,7 @@ pub const s_Node = struct {
 };
 
 fn isSymbol(c: u8) bool {
-    const symbols = "!@#$%^*()=[]{}|;:,./<>?";
+    const symbols = "!@#$%^*()=[]{}|./<>?";
 
     return std.mem.containsAtLeast(u8, symbols, 1, &[_]u8{c});
 }
@@ -223,7 +223,7 @@ pub fn s_generateASTFromCode(allocator: Allocator, code: []const u8) s_AST {
             current_node.appendNode(nod);
 
             current_node = &current_node._nodes.items[current_node._nodes.items.len - 1];
-        } else if (ascii.isWhitespace(code[i]) and pc == 0 and buffer.items.len > 0) {
+        } else if ((ascii.isWhitespace(code[i]) or code[i] == '\n') and pc == 0 and buffer.items.len > 0) {
             // a instruction call
             const nod = s_Node{
                 ._id = buffer.toOwnedSlice() catch {
@@ -235,10 +235,12 @@ pub fn s_generateASTFromCode(allocator: Allocator, code: []const u8) s_AST {
 
             current_node.appendNode(nod);
 
-            last_node = current_node;
-            current_node = &current_node._nodes.items[current_node._nodes.items.len - 1];
+            if (code[i] != '\n') {
+                last_node = current_node;
+                current_node = &current_node._nodes.items[current_node._nodes.items.len - 1];
 
-            pc = 1;
+                pc = 1;
+            }
 
             buffer.clearRetainingCapacity();
         } else if ((code[i] == s_TokenCharacters.S_TOKEN_PARAM_SEPARATOR or code[i] == '\n' or i + 1 >= code.len) and pc == 1) {
@@ -302,27 +304,7 @@ pub fn s_generateASTFromCode(allocator: Allocator, code: []const u8) s_AST {
                 pc = 0;
                 current_node = last_node;
             }
-        } else if ((ascii.isWhitespace(code[i])) and pc == 0) { // probably a keyword, like extern.
-            const nod = s_Node{
-                ._id = buffer.toOwnedSlice() catch {
-                    @panic("out of memory");
-                },
-                ._type = s_NodeType.ast_keyword,
-                ._nodes = std.ArrayList(s_Node).init(allocator),
-            };
-            buffer.clearRetainingCapacity();
-
-            pc = 5;
-
-            current_node.appendNode(nod);
-
-            last_node = current_node;
-            current_node = &current_node._nodes.items[current_node._nodes.items.len - 1];
-        }
-        else if ((ascii.isWhitespace(code[i]) or code[i] == '\n' or code[i] == s_TokenCharacters.S_TOKEN_COMMENT_START) and pc == 5) {
-
-        } 
-        else {
+        } else {
             if (code[i] == '\n' and comment) {
                 comment = false;
                 buffer.clearRetainingCapacity();
@@ -389,7 +371,7 @@ pub fn printASTPretty(ast: s_AST) void {
 fn printNodePretty(node: s_Node) void {
     switch (node._type) {
         .ast_subroutine_header_def => {
-            std.debug.print("{s}:", .{node._id});
+            std.debug.print("\n{s}:\n", .{node._id});
 
             for (0..node._nodes.items.len) |i| {
                 printNodePretty(node._nodes.items[i]);
