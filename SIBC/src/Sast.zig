@@ -53,6 +53,44 @@ pub const s_NodeType = enum {
 
     /// The root node.
     ast_root,
+
+    /// A directive, these are ignored by codegen
+    ///
+    /// Allows you to specify a certain engine that
+    /// the compiler must follow suite for.
+    ///
+    /// Example:
+    ///
+    /// ```asm
+    /// [compat <target>]
+    /// [compat nexfuse]
+    /// [compat mercury]
+    /// [compat solaris]
+    /// [compat openlud]
+    /// [compat std]
+    /// [compat any]
+    ///
+    /// <code here...>
+    /// ```
+    ast_directive,
+
+    /// A directive parameter
+    ast_directive_param,
+
+    /// Keywords
+    /// 
+    /// used for things like `extern`-ing labels
+    /// 
+    /// ```zig
+    /// extern abc
+    /// 
+    /// _start:
+    ///     jmp abc
+    /// 
+    /// abc:
+    ///     mov R0, 0
+    /// ```
+    ast_keyword,
 };
 
 /// Contains 3 fields - `_id`, `_type`, and `_nodes`.
@@ -199,7 +237,9 @@ pub fn s_generateASTFromCode(allocator: Allocator, code: []const u8) s_AST {
 
             last_node = current_node;
             current_node = &current_node._nodes.items[current_node._nodes.items.len - 1];
+
             pc = 1;
+
             buffer.clearRetainingCapacity();
         } else if ((code[i] == s_TokenCharacters.S_TOKEN_PARAM_SEPARATOR or code[i] == '\n' or i + 1 >= code.len) and pc == 1) {
             if (code[i] == '\n' or i + 1 >= code.len) {
@@ -225,7 +265,64 @@ pub fn s_generateASTFromCode(allocator: Allocator, code: []const u8) s_AST {
                 pc = 0;
                 current_node = last_node;
             }
-        } else {
+        } else if (code[i] == s_TokenCharacters.S_TOKEN_DIRECTIVE_START and pc == 0) { // [compat <target>], etc. Directives
+
+            pc = 3;
+
+            buffer.clearRetainingCapacity();
+        } else if (ascii.isWhitespace(code[i]) and pc == 3) {
+            const nod = s_Node{
+                ._id = buffer.toOwnedSlice() catch {
+                    @panic("out of memory");
+                },
+                ._type = s_NodeType.ast_directive,
+                ._nodes = std.ArrayList(s_Node).init(allocator),
+            };
+
+            current_node.appendNode(nod);
+
+            last_node = current_node;
+            current_node = &current_node._nodes.items[current_node._nodes.items.len - 1];
+
+            pc = 4;
+        } else if ((ascii.isWhitespace(code[i]) or code[i] == s_TokenCharacters.S_TOKEN_DIRECTIVE_END) and pc == 4) {
+            const nod = s_Node{
+                ._id = buffer.toOwnedSlice() catch {
+                    @panic("out of memory");
+                },
+                ._type = s_NodeType.ast_value,
+                ._nodes = std.ArrayList(s_Node).init(allocator),
+            };
+
+            current_node.appendNode(nod);
+
+            buffer.clearRetainingCapacity();
+
+            if (code[i] == s_TokenCharacters.S_TOKEN_DIRECTIVE_END) {
+                pc = 0;
+                current_node = last_node;
+            }
+        } else if ((ascii.isWhitespace(code[i])) and pc == 0) { // probably a keyword, like extern.
+            const nod = s_Node{
+                ._id = buffer.toOwnedSlice() catch {
+                    @panic("out of memory");
+                },
+                ._type = s_NodeType.ast_keyword,
+                ._nodes = std.ArrayList(s_Node).init(allocator),
+            };
+            buffer.clearRetainingCapacity();
+
+            pc = 5;
+
+            current_node.appendNode(nod);
+
+            last_node = current_node;
+            current_node = &current_node._nodes.items[current_node._nodes.items.len - 1];
+        }
+        else if ((ascii.isWhitespace(code[i]) or code[i] == '\n' or code[i] == s_TokenCharacters.S_TOKEN_COMMENT_START) and pc == 5) {
+
+        } 
+        else {
             if (code[i] == '\n' and comment) {
                 comment = false;
                 buffer.clearRetainingCapacity();

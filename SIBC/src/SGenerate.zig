@@ -23,22 +23,15 @@ pub fn s_generateBytecodeFromAST(allocator: Allocator, ast: s_AST, env: *s_ASMEn
     const in_subroutine = false;
     _ = in_subroutine;
 
+
     for (ast.nodes().items) |node| {
         switch (node._type) {
             .ast_subroutine_header_def => {
-                var start = false;
+                // TODO: deprecate start
+                const start = false;
 
-                // check if it's not a start label, beacuse that's
-                // a special case where we just write the code
-                // directly to the target
-                if (!std.mem.eql(u8, node._id, "_start")) {
-                    // then we're in the temporary generator
-                    gen = &tc;
-                    tc.clearRetainingCapacity();
-                } else {
-                    start = true;
-                    gen = &bc;
-                }
+                gen = &tc;
+                tc.clearRetainingCapacity();
 
                 for (node._nodes.items) |sub_node| {
                     // id is the name of the instruction
@@ -54,8 +47,8 @@ pub fn s_generateBytecodeFromAST(allocator: Allocator, ast: s_AST, env: *s_ASMEn
                         // an entire label's bytecode onto the frame
                         const labl = env.getLabel(id);
 
-                        for (0..labl.items.len) |i| {
-                            gen.append(labl.items[i]) catch {
+                        for (0..labl.items.len) |j| {
+                            gen.append(labl.items[j]) catch {
                                 @panic("out of memory");
                             };
                         }
@@ -69,37 +62,57 @@ pub fn s_generateBytecodeFromAST(allocator: Allocator, ast: s_AST, env: *s_ASMEn
                         };
 
                         for (sub_node._nodes.items) |n| {
-                            // append the rest as values
-                            const gen_num = s_Value.from(n._id).asNumber();
+                            if (n._type == .ast_value) {
+                                // append the rest as values
+                                const gen_num = s_Value.from(n._id).asNumber();
 
-                            gen.append(gen_num) catch {
-                                @panic("out of memory");
-                            };
-                        }
-
-                        if (env.is_delimited) {
-                            gen.append(env.delimiter) catch {
-                                @panic("out of memory");
-                            };
+                                gen.append(gen_num) catch {
+                                    @panic("out of memory");
+                                };
+                            }
                         }
                     }
 
-                    if (!start) {
-                        var labl = env.addLabelAndReturn(node._id);
-
-                        for (0..gen.items.len) |i| {
-                            labl.append(gen.items[i]) catch {
-                                @panic("out of memory");
-                            };
-                        }
+                    if (env.is_delimited) {
+                        gen.append(env.delimiter) catch {
+                            @panic("out of memory");
+                        };
                     }
                 }
+
+                if (!start) {
+                    var labl = env.addLabelAndReturn(node._id);
+
+                    for (0..gen.items.len) |i| {
+                        labl.append(gen.items[i]) catch {
+                            @panic("out of memory");
+                        };
+                    }
+                }
+            },
+            .ast_directive => {
+                var as_str = std.ArrayList([]const u8).init(allocator);
+                defer as_str.deinit();
+
+                for (node._nodes.items) |n| {
+                    as_str.append(n._id) catch {
+                        @panic("out of memory");
+                    };
+                }
+
+                const func = env.getDirective(node._id);
+                func(env, as_str);
             },
             else => {
                 @panic("unexpected node type in AST"); // todo: make this a new error
             },
         }
+
     }
+
+    bc.appendSlice(env.getLabel("_start").items[0..]) catch {
+        @panic("out of memory");
+    };
 
     if (env.needs_end) {
         bc.append(env.end) catch {

@@ -7,6 +7,8 @@ const std = @import("std");
 const s_32BitByteCode = @import("SByteCode.zig").s_32BitByteCode;
 const s_8BitByteCode = @import("SByteCode.zig").s_8BitByteCode;
 
+pub const s_directiveFunction = *const fn (*s_ASMEnvironment, std.ArrayList([]const u8)) void;
+
 pub const s_ASMEnvironment = struct {
     /// So say we have a label named `foo`, which
     /// has a simple `mov` instruction that looks like:
@@ -26,6 +28,9 @@ pub const s_ASMEnvironment = struct {
     ///
     /// A label will basically house that entirety of the opcode.
     labels: std.StringHashMap(s_32BitByteCode),
+
+    /// Contains functions for directives that take in a list of arguments
+    directives: std.StringHashMap(s_directiveFunction),
 
     /// Contains bindings for opcodes, e.g. `mov` and `int`
     opcodes: std.StringHashMap(i32),
@@ -50,11 +55,30 @@ pub const s_ASMEnvironment = struct {
     needs_end: bool = false,
     end: i32 = -1,
 
+    /// The format that the bytecode is meant to be in
+    format: []const u8 = "",
+
     pub fn init(allocator: std.mem.Allocator) s_ASMEnvironment {
         return s_ASMEnvironment{
             .labels = std.StringHashMap(s_32BitByteCode).init(allocator),
             .opcodes = std.StringHashMap(i32).init(allocator),
+            .directives = std.StringHashMap(s_directiveFunction).init(allocator),
         };
+    }
+
+    pub fn addDirective(self: *s_ASMEnvironment, directive: []const u8, func: s_directiveFunction) void {
+        self.directives.put(directive, func) catch {
+            @panic("problematic when adding directive - out of memory");
+        };
+    }
+
+    pub fn getDirective(self: *s_ASMEnvironment, directive: []const u8) s_directiveFunction {
+        if (self.directives.getPtr(directive) == null) {
+            std.debug.print("directive not found: `{s}`\n", .{directive});
+            @panic("no such directive");
+        }
+
+        return self.directives.get(directive).?;
     }
 
     pub fn addOpcode(self: *s_ASMEnvironment, opcode: []const u8, value: i32) void {
