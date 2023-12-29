@@ -14,7 +14,6 @@ _start:
     eeq
     ; note: eeq stands for ENDEQ, i.e. end of equal
     ; this is required for the 'cmp' instruction
-    
     ; if R1 != R2
     jne
         echo 'D'
